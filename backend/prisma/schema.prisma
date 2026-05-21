@@ -1,0 +1,259 @@
+// Схема базы данных — Система управления учебным процессом
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  CURATOR
+}
+
+enum AttendanceStatus {
+  PRESENT      // Присутствовал
+  ABSENT       // Отсутствовал
+  LATE         // Опоздал
+  EXCUSED      // Уважительная причина
+}
+
+enum GradeType {
+  CURRENT      // Текущая оценка
+  CONTROL      // Контрольная работа
+  EXAM         // Экзамен
+  COURSEWORK   // Курсовая работа
+  PRACTICE     // Практика
+}
+
+enum WeekType {
+  ALL          // Каждую неделю
+  ODD          // Нечётные недели
+  EVEN         // Чётные недели
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+enum AnnouncementTarget {
+  ALL
+  STUDENTS
+  TEACHERS
+  CURATORS
+  ADMINS
+}
+
+// ==================== MODELS ====================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  middleName    String?
+  phone         String?
+  avatar        String?   // путь к файлу аватара
+  role          Role
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Для студентов — привязка к группе
+  studentGroup      Group?    @relation("GroupStudents", fields: [studentGroupId], references: [id])
+  studentGroupId    String?
+
+  // Для кураторов — группа под управлением
+  curatedGroup      Group?    @relation("GroupCurator")
+
+  // Для преподавателей — занятия в расписании
+  scheduleEntries   ScheduleEntry[]  @relation("TeacherSchedule")
+
+  // Оценки: студент получает, преподаватель выставляет
+  receivedGrades    Grade[]   @relation("StudentGrades")
+  givenGrades       Grade[]   @relation("TeacherGrades")
+
+  // Посещаемость
+  attendanceRecords Attendance[] @relation("StudentAttendance")
+
+  // Объявления
+  announcements     Announcement[]
+
+  // Refresh-токены
+  refreshTokens     RefreshToken[]
+
+  @@index([email])
+  @@index([role])
+  @@index([studentGroupId])
+  @@map("users")
+}
+
+model Specialty {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique  // например, "09.02.07"
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  groups      Group[]
+
+  @@map("specialties")
+}
+
+model Group {
+  id           String    @id @default(uuid())
+  name         String    @unique  // например, "ИС-23-1"
+  year         Int       // год поступления
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  specialty    Specialty @relation(fields: [specialtyId], references: [id])
+  specialtyId  String
+
+  curator      User?     @relation("GroupCurator", fields: [curatorId], references: [id])
+  curatorId    String?   @unique
+
+  students     User[]    @relation("GroupStudents")
+
+  scheduleEntries ScheduleEntry[]
+
+  @@index([specialtyId])
+  @@map("groups")
+}
+
+model Subject {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique  // например, "МДК.01.01"
+  description String?
+  hoursTotal  Int      // общее количество часов
+  credits     Int?     // зачётные единицы
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  scheduleEntries ScheduleEntry[]
+  grades          Grade[]
+
+  @@map("subjects")
+}
+
+model ScheduleEntry {
+  id          String      @id @default(uuid())
+  dayOfWeek   DayOfWeek
+  startTime   String      // "08:00"
+  endTime     String      // "09:35"
+  room        String?     // номер аудитории
+  weekType    WeekType    @default(ALL)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  group       Group       @relation(fields: [groupId], references: [id])
+  groupId     String
+
+  subject     Subject     @relation(fields: [subjectId], references: [id])
+  subjectId   String
+
+  teacher     User        @relation("TeacherSchedule", fields: [teacherId], references: [id])
+  teacherId   String
+
+  attendance  Attendance[]
+
+  @@index([groupId])
+  @@index([teacherId])
+  @@index([dayOfWeek])
+  @@map("schedule_entries")
+}
+
+model Attendance {
+  id          String           @id @default(uuid())
+  date        DateTime         @db.Date
+  status      AttendanceStatus @default(PRESENT)
+  note        String?          // примечание (болен, соревнование и т.д.)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  student     User             @relation("StudentAttendance", fields: [studentId], references: [id])
+  studentId   String
+
+  scheduleEntry ScheduleEntry  @relation(fields: [scheduleEntryId], references: [id])
+  scheduleEntryId String
+
+  @@unique([studentId, scheduleEntryId, date])
+  @@index([studentId])
+  @@index([scheduleEntryId])
+  @@index([date])
+  @@map("attendance")
+}
+
+model Grade {
+  id          String      @id @default(uuid())
+  value       Int         // 2-5 (или 0-100 для процентной системы)
+  type        GradeType   @default(CURRENT)
+  date        DateTime    @default(now())
+  comment     String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  student     User        @relation("StudentGrades", fields: [studentId], references: [id])
+  studentId   String
+
+  subject     Subject     @relation(fields: [subjectId], references: [id])
+  subjectId   String
+
+  teacher     User        @relation("TeacherGrades", fields: [teacherId], references: [id])
+  teacherId   String
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([teacherId])
+  @@map("grades")
+}
+
+model Announcement {
+  id            String               @id @default(uuid())
+  title         String
+  content       String               @db.Text
+  isPinned      Boolean              @default(false)
+  targetRoles   AnnouncementTarget[] @default([ALL])
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  author        User                 @relation(fields: [authorId], references: [id])
+  authorId      String
+
+  @@index([authorId])
+  @@index([isPinned])
+  @@map("announcements")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
