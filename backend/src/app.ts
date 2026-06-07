@@ -27,9 +27,17 @@ const app = express();
 
 // ==================== SECURITY ====================
 app.use(helmet());
+const isDev = process.env.NODE_ENV !== 'production';
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3001').split(',');
+
 app.use(
   cors({
-    origin: (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3001').split(','),
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (isDev && /^http:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
   }),
 );

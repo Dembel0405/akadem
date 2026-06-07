@@ -14,16 +14,20 @@ router.get('/', async (req, res) => {
   const { id, role } = req.user!;
 
   if (role === 'ADMIN') {
-    const [totalStudents, totalTeachers, totalGroups, recentAnnouncements] = await Promise.all([
-      prisma.user.count({ where: { role: 'STUDENT', isActive: true } }),
-      prisma.user.count({ where: { role: 'TEACHER', isActive: true } }),
-      prisma.group.count({ where: { isActive: true } }),
-      prisma.announcement.findMany({
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        include: { author: { select: { firstName: true, lastName: true } } },
-      }),
-    ]);
+    const [totalStudents, totalTeachers, totalGroups, totalCurators, totalAdmins, totalSubjects, recentAnnouncements] =
+      await Promise.all([
+        prisma.user.count({ where: { role: 'STUDENT', isActive: true } }),
+        prisma.user.count({ where: { role: 'TEACHER', isActive: true } }),
+        prisma.group.count({ where: { isActive: true } }),
+        prisma.user.count({ where: { role: 'CURATOR', isActive: true } }),
+        prisma.user.count({ where: { role: 'ADMIN', isActive: true } }),
+        prisma.subject.count({ where: { isActive: true } }),
+        prisma.announcement.findMany({
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          include: { author: { select: { firstName: true, lastName: true } } },
+        }),
+      ]);
 
     // Посещаемость за текущую неделю
     const weekAgo = new Date();
@@ -34,14 +38,25 @@ router.get('/', async (req, res) => {
       _count: true,
     });
 
+    const gradeAgg = await prisma.grade.aggregate({ _avg: { value: true } });
+
+    const attendanceMap = attendanceStats.reduce<Record<string, number>>(
+      (acc, s) => ({ ...acc, [s.status]: s._count }),
+      {},
+    );
+
     return ApiResponse.success(res, {
       role: 'ADMIN',
+      // Для dashboard_page
       stats: { totalStudents, totalTeachers, totalGroups },
-      attendanceStats: attendanceStats.reduce<Record<string, number>>(
-        (acc, s) => ({ ...acc, [s.status]: s._count }),
-        {},
-      ),
+      attendanceStats: attendanceMap,
       recentAnnouncements,
+      // Для admin_analytics_page
+      userStats: { students: totalStudents, teachers: totalTeachers, curators: totalCurators, admins: totalAdmins },
+      groupCount: totalGroups,
+      subjectCount: totalSubjects,
+      recentAttendance: attendanceMap,
+      averageGrade: gradeAgg._avg.value != null ? Math.round(gradeAgg._avg.value * 100) / 100 : null,
     });
   }
 
@@ -83,23 +98,36 @@ router.get('/', async (req, res) => {
   }
 
   if (role === 'TEACHER') {
-    const scheduleEntries = await prisma.scheduleEntry.findMany({
-      where: { teacherId: id, isActive: true },
-      include: {
-        group: { select: { id: true, name: true } },
-        subject: { select: { id: true, name: true } },
-      },
-      distinct: ['groupId', 'subjectId'],
-    });
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Количество занятий сегодня
-    const dayOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][today.getDay()];
-    const todayClasses = await prisma.scheduleEntry.count({
-      where: { teacherId: id, isActive: true, dayOfWeek: dayOfWeek as any },
-    });
+    // SUNDAY (getDay()=0) is not in the DayOfWeek enum — no classes on Sunday
+    const dayMap: Record<number, string> = {
+      1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY', 4: 'THURSDAY', 5: 'FRIDAY', 6: 'SATURDAY',
+    };
+    const dayOfWeekEnum = dayMap[today.getDay()];
+
+    const [scheduleEntries, todayClasses, announcements] = await Promise.all([
+      prisma.scheduleEntry.findMany({
+        where: { teacherId: id, isActive: true },
+        include: {
+          group: { select: { id: true, name: true } },
+          subject: { select: { id: true, name: true } },
+        },
+        distinct: ['groupId', 'subjectId'],
+      }),
+      dayOfWeekEnum
+        ? prisma.scheduleEntry.count({
+            where: { teacherId: id, isActive: true, dayOfWeek: dayOfWeekEnum as any },
+          })
+        : Promise.resolve(0),
+      prisma.announcement.findMany({
+        where: { OR: [{ targetRoles: { has: 'ALL' } }, { targetRoles: { has: 'TEACHERS' } }] },
+        take: 3,
+        orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+        include: { author: { select: { firstName: true, lastName: true } } },
+      }),
+    ]);
 
     return ApiResponse.success(res, {
       role: 'TEACHER',
@@ -109,6 +137,7 @@ router.get('/', async (req, res) => {
         todayClasses,
       },
       groupsAndSubjects: scheduleEntries,
+      announcements,
     });
   }
 

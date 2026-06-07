@@ -54,6 +54,14 @@ export class ScheduleService {
     return [];
   }
 
+  async getAll() {
+    return prisma.scheduleEntry.findMany({
+      where: { isActive: true },
+      include: entryInclude,
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+  }
+
   async create(dto: z.infer<typeof createEntrySchema>) {
     // Проверка конфликтов: одна группа не может иметь 2 урока в одно время
     const conflict = await prisma.scheduleEntry.findFirst({

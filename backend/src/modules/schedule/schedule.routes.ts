@@ -23,6 +23,11 @@ router.get('/teacher/:teacherId', async (req, res) => {
   ApiResponse.success(res, entries);
 });
 
+router.get('/', authorize('ADMIN'), async (_req, res) => {
+  const entries = await scheduleService.getAll();
+  ApiResponse.success(res, entries);
+});
+
 router.post('/', authorize('ADMIN'), validateBody(createEntrySchema), async (req, res) => {
   const entry = await scheduleService.create(req.body);
   ApiResponse.created(res, entry, 'Занятие добавлено в расписание');

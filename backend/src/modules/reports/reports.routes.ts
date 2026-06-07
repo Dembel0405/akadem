@@ -61,10 +61,19 @@ router.get('/attendance/group/:groupId', async (req, res) => {
     };
   });
 
+  const totalPresent = attendanceRecords.filter((r) => r.status === 'PRESENT').length;
+  const totalAbsent = attendanceRecords.filter((r) => r.status === 'ABSENT').length;
+  const totalLate = attendanceRecords.filter((r) => r.status === 'LATE').length;
+  const totalExcused = attendanceRecords.filter((r) => r.status === 'EXCUSED').length;
+
   ApiResponse.success(res, {
     group: { id: group.id, name: group.name, specialty: group.specialty.name },
     period: { from: from ?? null, to: to ?? null },
     studentStats,
+    PRESENT: totalPresent,
+    ABSENT: totalAbsent,
+    LATE: totalLate,
+    EXCUSED: totalExcused,
   });
 });
 

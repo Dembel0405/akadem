@@ -6,6 +6,7 @@ import '../../../../core/widgets/loading_indicator.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/cache/cache_service.dart';
 
 class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key});
@@ -40,12 +41,17 @@ class _SchedulePageState extends State<SchedulePage> {
     setState(() { _loading = true; _error = null; });
     try {
       final response = await dioClient.dio.get('${ApiConstants.schedule}/my');
-      setState(() {
-        _entries = response.data['data'] as List;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() { _error = 'Не удалось загрузить расписание'; _loading = false; });
+      final data = response.data['data'] as List;
+      await cacheService.set('schedule_my', data);
+      setState(() { _entries = data; _loading = false; });
+    } catch (_) {
+      // Показываем кэшированные данные при отсутствии сети
+      final cached = cacheService.get<List>('schedule_my');
+      if (cached != null) {
+        setState(() { _entries = cached; _loading = false; });
+      } else {
+        setState(() { _error = 'Нет подключения и кэша'; _loading = false; });
+      }
     }
   }
 

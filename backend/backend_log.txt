@@ -1,0 +1,62 @@
+
+> college-management-backend@1.0.0 dev
+> tsx watch src/server.ts
+
+✅ Подключение к базе данных установлено
+node:events:487
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:2008:16)
+    at listenInCluster (node:net:2065:12)
+    at Server.listen (node:net:2170:7)
+    at app.listen (C:\Users\LENOVO\Desktop\Akadem\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (C:\Users\LENOVO\Desktop\Akadem\backend\src\server.ts:12:9)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:2044:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}
+
+Node.js v24.16.0
+22:17:21 [tsx] change in ./src\modules\dashboard\dashboard.routes.ts Rerunning...
+c✅ Подключение к базе данных установлено
+🚀 Сервер запущен на порту 3000
+📖 Swagger UI: http://localhost:3000/api/docs
+🌍 Режим: development
+prisma:query SELECT 1
+prisma:query SELECT "public"."users"."id", "public"."users"."email", "public"."users"."passwordHash", "public"."users"."firstName", "public"."users"."lastName", "public"."users"."middleName", "public"."users"."phone", "public"."users"."avatar", "public"."users"."role"::text, "public"."users"."isActive", "public"."users"."createdAt", "public"."users"."updatedAt", "public"."users"."studentGroupId" FROM "public"."users" WHERE ("public"."users"."email" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query INSERT INTO "public"."refresh_tokens" ("id","token","expiresAt","createdAt","userId") VALUES ($1,$2,$3,$4,$5) RETURNING "public"."refresh_tokens"."id", "public"."refresh_tokens"."token", "public"."refresh_tokens"."expiresAt", "public"."refresh_tokens"."createdAt", "public"."refresh_tokens"."userId"
+::ffff:127.0.0.1 - - [07/Jun/2026:17:18:35 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 785 "-" "-"
+prisma:query SELECT "public"."schedule_entries"."id", "public"."schedule_entries"."dayOfWeek"::text, "public"."schedule_entries"."startTime", "public"."schedule_entries"."endTime", "public"."schedule_entries"."room", "public"."schedule_entries"."weekType"::text, "public"."schedule_entries"."isActive", "public"."schedule_entries"."createdAt", "public"."schedule_entries"."updatedAt", "public"."schedule_entries"."groupId", "public"."schedule_entries"."subjectId", "public"."schedule_entries"."teacherId" FROM "public"."schedule_entries" WHERE ("public"."schedule_entries"."teacherId" = $1 AND "public"."schedule_entries"."isActive" = $2) OFFSET $3
+prisma:query SELECT "public"."groups"."id", "public"."groups"."name" FROM "public"."groups" WHERE "public"."groups"."id" IN ($1,$2) OFFSET $3
+prisma:query SELECT "public"."subjects"."id", "public"."subjects"."name" FROM "public"."subjects" WHERE "public"."subjects"."id" IN ($1,$2) OFFSET $3
+::ffff:127.0.0.1 - - [07/Jun/2026:17:18:35 +0000] "GET /api/v1/dashboard HTTP/1.1" 200 2455 "-" "-"
+22:19:13 [tsx] change in ./src\modules\dashboard\dashboard.routes.ts Restarting...
+c✅ Подключение к базе данных установлено
+node:events:487
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:2008:16)
+    at listenInCluster (node:net:2065:12)
+    at Server.listen (node:net:2170:7)
+    at app.listen (C:\Users\LENOVO\Desktop\Akadem\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (C:\Users\LENOVO\Desktop\Akadem\backend\src\server.ts:12:9)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:2044:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}
+
+Node.js v24.16.0

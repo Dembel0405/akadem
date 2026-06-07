@@ -22,21 +22,33 @@ router.get('/', async (req, res) => {
   const { page, perPage, skip } = parsePagination(req.query as any);
   const role = req.user!.role;
 
-  // Фильтруем объявления по роли пользователя
+  // Роль пользователя → цель объявления (множественное число в enum)
+  const roleToTarget: Partial<Record<string, AnnouncementTarget>> = {
+    STUDENT: AnnouncementTarget.STUDENTS,
+    TEACHER: AnnouncementTarget.TEACHERS,
+    CURATOR: AnnouncementTarget.CURATORS,
+  };
+
+  // Администратор видит все объявления (для управления).
+  // Остальные видят адресованные им + общие (ALL).
+  const where = role === 'ADMIN'
+    ? {}
+    : {
+        OR: [
+          { targetRoles: { has: AnnouncementTarget.ALL } },
+          ...(roleToTarget[role] ? [{ targetRoles: { has: roleToTarget[role]! } }] : []),
+        ],
+      };
+
   const [items, total] = await Promise.all([
     prisma.announcement.findMany({
-      where: {
-        OR: [
-          { targetRoles: { has: 'ALL' } },
-          { targetRoles: { has: role as AnnouncementTarget } },
-        ],
-      },
+      where,
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
       skip,
       take: perPage,
       include: { author: { select: { id: true, firstName: true, lastName: true } } },
     }),
-    prisma.announcement.count(),
+    prisma.announcement.count({ where }),
   ]);
 
   ApiResponse.paginated(res, items, buildPaginationMeta(total, page, perPage));

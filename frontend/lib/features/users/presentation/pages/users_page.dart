@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/loading_indicator.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/network/dio_client.dart';
@@ -46,6 +47,113 @@ class _UsersPageState extends State<UsersPage> {
     }
   }
 
+  void _showAddUserDialog() {
+    final firstNameCtrl = TextEditingController();
+    final lastNameCtrl = TextEditingController();
+    final middleNameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
+    String role = 'STUDENT';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModal) => SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: 20, right: 20, top: 20,
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              Text('Новый пользователь', style: AppTextStyles.h4),
+              const SizedBox(height: 16),
+              AppTextField(label: 'Фамилия', hint: 'Иванов', controller: lastNameCtrl),
+              const SizedBox(height: 12),
+              AppTextField(label: 'Имя', hint: 'Иван', controller: firstNameCtrl),
+              const SizedBox(height: 12),
+              AppTextField(label: 'Отчество (необязательно)', hint: 'Иванович', controller: middleNameCtrl),
+              const SizedBox(height: 12),
+              AppTextField(label: 'Email', hint: 'user@college.ru', controller: emailCtrl, keyboardType: TextInputType.emailAddress),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Пароль',
+                hint: 'Мин. 8 символов, 1 заглавная, 1 цифра',
+                controller: passwordCtrl,
+                obscureText: true,
+              ),
+              const SizedBox(height: 12),
+              Text('Роль', style: AppTextStyles.captionMedium.copyWith(color: AppColors.gray700)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: role,
+                decoration: const InputDecoration(isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'STUDENT', child: Text('Студент')),
+                  DropdownMenuItem(value: 'TEACHER', child: Text('Преподаватель')),
+                  DropdownMenuItem(value: 'CURATOR', child: Text('Куратор')),
+                  DropdownMenuItem(value: 'ADMIN', child: Text('Администратор')),
+                ],
+                onChanged: (v) => setModal(() => role = v ?? role),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final firstName = firstNameCtrl.text.trim();
+                    final lastName = lastNameCtrl.text.trim();
+                    final email = emailCtrl.text.trim();
+                    final password = passwordCtrl.text;
+                    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(content: Text('Заполните все обязательные поля')),
+                      );
+                      return;
+                    }
+                    try {
+                      final data = {
+                        'firstName': firstName,
+                        'lastName': lastName,
+                        'email': email,
+                        'password': password,
+                        'role': role,
+                        if (middleNameCtrl.text.trim().isNotEmpty) 'middleName': middleNameCtrl.text.trim(),
+                      };
+                      await dioClient.dio.post(ApiConstants.register, data: data);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      _load();
+                    } catch (_) {
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(
+                            content: Text('Ошибка. Проверьте данные (пароль: мин. 8 символов, 1 заглавная, 1 цифра).'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Создать'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,7 +161,7 @@ class _UsersPageState extends State<UsersPage> {
       appBar: AppBar(
         title: Text('Пользователи', style: AppTextStyles.h3),
         actions: [
-          IconButton(icon: const Icon(Icons.person_add_outlined), onPressed: () {}, tooltip: 'Добавить'),
+          IconButton(icon: const Icon(Icons.person_add_outlined), onPressed: _showAddUserDialog, tooltip: 'Добавить'),
           const SizedBox(width: 8),
         ],
       ),
@@ -190,7 +298,7 @@ class _UsersPageState extends State<UsersPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(label, style: AppTextStyles.label.copyWith(color: color)),
